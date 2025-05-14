@@ -1,8 +1,6 @@
-setuptools==65.5.0
-wheel==0.42.0
-streamlit==1.29.0
-streamlit-webrtc==0.36.0
-mediapipe==0.10.21
-opencv-python-headless==4.8.0.74
-numpy==1.24.3
-pyproject-utils
+streamlit
+mediapipe==0.9.1
+opencv-contrib-python-headless==4.9.0
+numpy
+streamlit-webrtc==0.47.0
+av==10.0.0
