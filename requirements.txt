@@ -5,3 +5,5 @@ streamlit-webrtc==0.36.0
 mediapipe==0.10.21
 opencv-python==4.8.0.74
 numpy==1.24.3
+cython
+pyproject-utils
