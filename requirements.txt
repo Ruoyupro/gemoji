@@ -1,6 +1,7 @@
 streamlit==1.45.1
 mediapipe==0.10.21
-opencv-contrib-python==4.11.0.86
+opencv-contrib-python-headless
 numpy==1.26.4
 textwrap3==0.9.2
 streamlit-webrtc==0.62.4
+libgl1-mesa-dri, libglib2.0-0, libglx0
