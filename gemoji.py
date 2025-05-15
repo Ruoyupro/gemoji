@@ -1,6 +1,45 @@
 import streamlit as st
 
 # =============================
+# Local Running Instructions
+# =============================
+with st.expander("💻 How to run this app locally on your computer"):
+    st.markdown("""
+    **1. Download or clone this repository to your computer.**
+
+    **2. (Recommended) Create a virtual environment:**
+    ```
+    python -m venv .venv
+    # Windows:
+    .venv\\Scripts\\activate
+    # macOS/Linux:
+    source .venv/bin/activate
+    ```
+
+    **3. Install all requirements:**
+    ```
+    pip install -r requirements.txt
+    ```
+
+    **4. Run the app:**
+    ```
+    streamlit run your_app.py
+    ```
+    (Replace `your_app.py` with the filename of this script.)
+
+    ---
+    **If you don't have `requirements.txt`, click below to download it:**
+    """)
+    requirements = """streamlit
+mediapipe
+opencv-contrib-python-headless
+numpy
+Pillow
+streamlit-webrtc
+"""
+    st.download_button("Download requirements.txt", requirements, file_name="requirements.txt")
+
+# =============================
 # Handle OpenCV Import Safely
 # =============================
 try:
@@ -8,7 +47,21 @@ try:
 except ImportError as e:
     st.error("""
         **Failed to import OpenCV (`cv2`).**
-        ...
+        This usually happens because:
+        - Missing system libraries (like `libgl1-mesa-dri`)
+        - Incorrect OpenCV package installed
+        - Conflicting installations
+
+        **How to fix:**
+        - Use `opencv-contrib-python-headless` instead of `opencv-python`
+          (run: `pip install --upgrade opencv-contrib-python-headless`)
+        - If deploying on Streamlit Cloud, add to `packages.txt`:
+          `libgl1-mesa-dri`, `libglib2.0-0`, `libglx0`
+        - Remove conflicting OpenCV installs:
+          ```
+          pip uninstall opencv-python opencv-contrib-python opencv-python-headless opencv-contrib-python-headless -y
+          pip install opencv-contrib-python-headless
+          ```
     """)
     st.code(str(e))
     st.stop()
