@@ -10,7 +10,7 @@ import textwrap
 from typing import List, Dict, Optional, Tuple
 
 # =============================
-# User Prompt for Downloading Animations
+# Prompt User Before Downloading Animations
 # =============================
 ANIMATION_REPO_PATH = "gemoji"
 ANIMATION_GITHUB_URL = "https://github.com/Ruoyupro/gemoji.git "
@@ -122,109 +122,6 @@ def draw_wrapped_text(img, text, pos_y, font, font_scale, color, thickness, max_
         y += line_height
 
 # =============================
-# Gesture Detection Functions
-# =============================
-def is_finger_closed(hand_landmarks, finger_tip, finger_pip):
-    tip = hand_landmarks.landmark[finger_tip]
-    pip = hand_landmarks.landmark[finger_pip]
-    return tip.y > pip.y
-
-def is_hand_upright(hand_landmarks):
-    wrist = hand_landmarks.landmark[mp_hands.HandLandmark.WRIST]
-    mcp = hand_landmarks.landmark[mp_hands.HandLandmark.MIDDLE_FINGER_MCP]
-    return wrist.y > mcp.y
-
-def is_heart_gesture(hands_list):
-    if len(hands_list) != 2:
-        return False
-    hand1, hand2 = hands_list
-    if not (is_hand_upright(hand1) and is_hand_upright(hand2)):
-        return False
-    for hand in hands_list:
-        if not (
-            is_finger_closed(hand, mp_hands.HandLandmark.MIDDLE_FINGER_TIP, mp_hands.HandLandmark.MIDDLE_FINGER_PIP) and
-            is_finger_closed(hand, mp_hands.HandLandmark.RING_FINGER_TIP, mp_hands.HandLandmark.RING_FINGER_PIP) and
-            is_finger_closed(hand, mp_hands.HandLandmark.PINKY_TIP, mp_hands.HandLandmark.PINKY_PIP)
-        ):
-            return False
-    thumb1 = hand1.landmark[mp_hands.HandLandmark.THUMB_TIP]
-    index1 = hand1.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP]
-    thumb2 = hand2.landmark[mp_hands.HandLandmark.THUMB_TIP]
-    index2 = hand2.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP]
-    thumb_dist = np.hypot(thumb1.x - thumb2.x, thumb1.y - thumb2.y)
-    index_dist = np.hypot(index1.x - index2.x, index1.y - index2.y)
-    return thumb_dist < 0.15 and index_dist < 0.15
-
-def is_finger_heart(hand_landmarks):
-    if not is_hand_upright(hand_landmarks):
-        return False
-    if not all(
-        is_finger_closed(hand_landmarks, tip, pip) for tip, pip in [
-            (mp_hands.HandLandmark.MIDDLE_FINGER_TIP, mp_hands.HandLandmark.MIDDLE_FINGER_PIP),
-            (mp_hands.HandLandmark.RING_FINGER_TIP, mp_hands.HandLandmark.RING_FINGER_PIP),
-            (mp_hands.HandLandmark.PINKY_TIP, mp_hands.HandLandmark.PINKY_PIP)
-        ]
-    ):
-        return False
-    thumb = hand_landmarks.landmark[mp_hands.HandLandmark.THUMB_TIP]
-    index = hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP]
-    distance = np.hypot(thumb.x - index.x, thumb.y - index.y)
-    return distance < 0.05
-
-def is_middle_finger(hand_landmarks):
-    if not (
-        is_finger_closed(hand_landmarks, mp_hands.HandLandmark.INDEX_FINGER_TIP, mp_hands.HandLandmark.INDEX_FINGER_PIP) and
-        is_finger_closed(hand_landmarks, mp_hands.HandLandmark.RING_FINGER_TIP, mp_hands.HandLandmark.RING_FINGER_PIP) and
-        is_finger_closed(hand_landmarks, mp_hands.HandLandmark.PINKY_TIP, mp_hands.HandLandmark.PINKY_PIP)
-    ):
-        return False
-    middle_tip = hand_landmarks.landmark[mp_hands.HandLandmark.MIDDLE_FINGER_TIP]
-    middle_pip = hand_landmarks.landmark[mp_hands.HandLandmark.MIDDLE_FINGER_PIP]
-    return middle_tip.y < middle_pip.y
-
-def is_thumbs_up(hand_landmarks):
-    wrist = hand_landmarks.landmark[mp_hands.HandLandmark.WRIST]
-    thumb_tip = hand_landmarks.landmark[mp_hands.HandLandmark.THUMB_TIP]
-    thumb_ip = hand_landmarks.landmark[mp_hands.HandLandmark.THUMB_IP]
-    thumb_mcp = hand_landmarks.landmark[mp_hands.HandLandmark.THUMB_MCP]
-    thumb_up = (thumb_tip.y < wrist.y - 0.02 and
-                thumb_tip.y < thumb_ip.y - 0.01 and
-                thumb_ip.y < thumb_mcp.y + 0.03)
-    open_fingers = 0
-    for tip, pip in [
-        (mp_hands.HandLandmark.INDEX_FINGER_TIP, mp_hands.HandLandmark.INDEX_FINGER_PIP),
-        (mp_hands.HandLandmark.MIDDLE_FINGER_TIP, mp_hands.HandLandmark.MIDDLE_FINGER_PIP),
-        (mp_hands.HandLandmark.RING_FINGER_TIP, mp_hands.HandLandmark.RING_FINGER_PIP),
-        (mp_hands.HandLandmark.PINKY_TIP, mp_hands.HandLandmark.PINKY_PIP)
-    ]:
-        tip_y = hand_landmarks.landmark[tip].y
-        pip_y = hand_landmarks.landmark[pip].y
-        if tip_y < pip_y - 0.05:
-            open_fingers += 1
-    return thumb_up and open_fingers <= 1
-
-def is_thumbs_down(hand_landmarks):
-    wrist = hand_landmarks.landmark[mp_hands.HandLandmark.WRIST]
-    thumb_tip = hand_landmarks.landmark[mp_hands.HandLandmark.THUMB_TIP]
-    thumb_ip = hand_landmarks.landmark[mp_hands.HandLandmark.THUMB_IP]
-    thumb_mcp = hand_landmarks.landmark[mp_hands.HandLandmark.THUMB_MCP]
-    thumb_down = (thumb_tip.y > wrist.y + 0.02 and
-                  thumb_tip.y > thumb_ip.y + 0.01 and
-                  thumb_ip.y > thumb_mcp.y - 0.03)
-    open_fingers = 0
-    for tip, pip in [
-        (mp_hands.HandLandmark.INDEX_FINGER_TIP, mp_hands.HandLandmark.INDEX_FINGER_PIP),
-        (mp_hands.HandLandmark.MIDDLE_FINGER_TIP, mp_hands.HandLandmark.MIDDLE_FINGER_PIP),
-        (mp_hands.HandLandmark.RING_FINGER_TIP, mp_hands.HandLandmark.RING_FINGER_PIP),
-        (mp_hands.HandLandmark.PINKY_TIP, mp_hands.HandLandmark.PINKY_PIP)
-    ]:
-        tip_y = hand_landmarks.landmark[tip].y
-        pip_y = hand_landmarks.landmark[pip].y
-        if tip_y > pip_y + 0.05:
-            open_fingers += 1
-    return thumb_down and open_fingers <= 1
-
-# =============================
 # Streamlit Video Processor
 # =============================
 class VideoProcessor(VideoProcessorBase):
@@ -291,12 +188,11 @@ class VideoProcessor(VideoProcessorBase):
             img_rgba = (img_rgba * (1 - alpha_overlay) + dot_overlay * alpha_overlay).astype(np.uint8)
             img = cv2.cvtColor(img_rgba, cv2.COLOR_BGRA2BGR)
 
-        # Detect gestures and provide contextual feedback
         detected_gestures = [False] * 6
-        gesture_context = None  # (dot_index, gesture_name)
+        gesture_context = None
 
         if results.multi_hand_landmarks and self.dot_opacity > 0.5:
-            # Get hand position
+            # Get index finger tip position
             if len(results.multi_hand_landmarks) == 2:
                 hand1, hand2 = results.multi_hand_landmarks
                 index_tip_1 = hand1.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP]
@@ -314,7 +210,6 @@ class VideoProcessor(VideoProcessorBase):
                     if self.gesture_timers[i] is None:
                         self.gesture_timers[i] = current_time
                     elif current_time - self.gesture_timers[i] >= sustain_duration:
-                        # Determine which gesture is being performed
                         gesture_name = ""
                         if len(results.multi_hand_landmarks) == 2:
                             if is_heart_gesture(results.multi_hand_landmarks):
@@ -333,7 +228,7 @@ class VideoProcessor(VideoProcessorBase):
                             detected_gestures[i] = True
                             gesture_context = (i, gesture_name)
                             self.gesture_timers[i] = None
-                    # Draw a ring in the color of the dot, with full opacity
+                    # Draw ring around hovered dot
                     cv2.circle(img, (dot_x, dot_y), 30, dot_colors[i], 4)
                 else:
                     self.gesture_timers[i] = None
@@ -369,10 +264,10 @@ class VideoProcessor(VideoProcessorBase):
             self.feedback_timer = current_time
 
         # Draw feedback message if toggled on
-        if self.show_feedback and self.feedback_message and self.feedback_timer and (current_time - self.feedback_timer < self.feedback_duration):
+        if self.show_feedback and self.feedback_message and (current_time - self.feedback_timer < self.feedback_duration):
             draw_wrapped_text(
                 img, self.feedback_message, 50,
-                cv2.FONT_HERSHEY_SIMPLEX, 0.85, (0, 255, 0), 2, max_width=32
+                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2, max_width=32
             )
 
         # Play animation if active
@@ -430,7 +325,7 @@ class VideoProcessor(VideoProcessorBase):
 # =============================
 st.title("Gemoji Gesture Control")
 
-# Create a sidebar for controls
+# Sidebar controls
 with st.sidebar:
     st.header("Settings")
     show_tracking = st.checkbox("Show Hand Tracking", value=True)
@@ -462,7 +357,7 @@ ctx = webrtc_streamer(
     media_stream_constraints={"video": True, "audio": False},
 )
 
-# Update the processor settings if the video processor is running
+# Update settings
 if ctx.video_processor:
     ctx.video_processor.show_tracking_markers = show_tracking
     ctx.video_processor.show_feedback = show_feedback
