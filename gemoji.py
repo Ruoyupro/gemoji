@@ -8,27 +8,11 @@ try:
 except ImportError as e:
     st.error("""
         **Failed to import OpenCV (`cv2`).**
-
-        This usually happens because:
-        - Missing system libraries (like `libgl1-mesa-dri`)
-        - Incorrect OpenCV package installed
-        - Conflicting installations
-
-        **How to fix:**
-        - Use `opencv-contrib-python` instead of `opencv-python`  
-          (run: `pip install --upgrade opencv-contrib-python`)
-        - If deploying on Streamlit Cloud, add to `packages.txt`:  
-          `libgl1-mesa-dri`, `libglib2.0-0`, `libglx0`
-        - Remove conflicting OpenCV installs:
-          ```
-          pip uninstall opencv-python opencv-contrib-python -y
-          pip install opencv-contrib-python
-          ```
+        ...
     """)
     st.code(str(e))
     st.stop()
 
-# Only import mediapipe after cv2 is confirmed to work
 from streamlit_webrtc import webrtc_streamer, VideoProcessorBase, RTCConfiguration
 import av
 import numpy as np
@@ -193,6 +177,24 @@ def is_thumbs_down(hand_landmarks):
     return thumb_tip.y > wrist.y
 
 # =============================
+# Streamlit UI Toggles (NEW)
+# =============================
+st.title("Gemoji: Gesture-Triggered Emoji Animations 🎉")
+
+st.markdown("""
+Interact with the colored dots using your hand gestures!
+- Hover your index finger (or both for heart) over a dot and perform a gesture.
+- Supported gestures: Hand Heart, Finger Heart, Middle Finger, Thumbs Up, Thumbs Down.
+""")
+
+# --- NEW: UI toggles for hand tracking markers and feedback ---
+col1, col2 = st.columns(2)
+with col1:
+    show_tracking_markers = st.toggle("Show Hand Tracking Markers", value=True)
+with col2:
+    show_feedback = st.toggle("Show Feedback", value=True)
+
+# =============================
 # Streamlit Video Processor
 # =============================
 class VideoProcessor(VideoProcessorBase):
@@ -217,10 +219,16 @@ class VideoProcessor(VideoProcessorBase):
         self.feedback_message = ""
         self.feedback_timer = None
         self.feedback_duration = 2.5
+
+        # --- NEW: These will be set from Streamlit session state below ---
         self.show_tracking_markers = True
         self.show_feedback = True
 
     def recv(self, frame):
+        # --- NEW: Get toggles from Streamlit session state ---
+        self.show_tracking_markers = st.session_state.get("show_tracking_markers", True)
+        self.show_feedback = st.session_state.get("show_feedback", True)
+
         try:
             img = frame.to_ndarray(format="bgr24")
         except Exception as e:
@@ -306,7 +314,7 @@ class VideoProcessor(VideoProcessorBase):
                 else:
                     self.gesture_timers[i] = None
 
-            # Draw tracking markers
+            # Draw tracking markers if enabled (RESTORED FEATURE)
             if self.show_tracking_markers:
                 for hand_landmarks in results.multi_hand_landmarks:
                     mp_drawing.draw_landmarks(
@@ -324,7 +332,7 @@ class VideoProcessor(VideoProcessorBase):
             self.feedback_message = msg
             self.feedback_timer = current_time
 
-        # Draw feedback message if toggled on
+        # Draw feedback message if toggled on (RESTORED FEATURE)
         if self.show_feedback and self.feedback_message and (current_time - self.feedback_timer < self.feedback_duration):
             draw_wrapped_text(
                 img, self.feedback_message, 50,
@@ -376,17 +384,11 @@ class VideoProcessor(VideoProcessorBase):
 
         return av.VideoFrame.from_ndarray(img, format="bgr24")
 
-# =============================
-# Streamlit UI
-# =============================
-st.title("Gemoji: Gesture-Triggered Emoji Animations 🎉")
+# --- Save toggles in session state for use in VideoProcessor ---
+st.session_state["show_tracking_markers"] = show_tracking_markers
+st.session_state["show_feedback"] = show_feedback
 
-st.markdown("""
-Interact with the colored dots using your hand gestures!
-- Hover your index finger (or both for heart) over a dot and perform a gesture.
-- Supported gestures: Hand Heart, Finger Heart, Middle Finger, Thumbs Up, Thumbs Down.
-""")
-
+# --- Streamlit WebRTC ---
 webrtc_streamer(
     key="gemoji-stream",
     video_processor_factory=VideoProcessor,
