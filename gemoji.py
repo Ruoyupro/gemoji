@@ -9,11 +9,35 @@ import time
 import textwrap
 from typing import List, Dict, Optional, Tuple
 
-# Clone the GitHub repository (run only once)
-if not os.path.exists("gemoji"):
-    import subprocess
-    subprocess.run(["git", "clone", "https://github.com/Ruoyupro/gemoji.git"])
-    os.chdir("gemoji")
+# =============================
+# User Prompt for Downloading Animations
+# =============================
+ANIMATION_REPO_PATH = "gemoji"
+ANIMATION_GITHUB_URL = "https://github.com/Ruoyupro/gemoji.git "
+
+if not os.path.exists(ANIMATION_REPO_PATH):
+    st.warning("This app needs to download animations (~50MB). Do you want to proceed?")
+    proceed = st.checkbox("Yes, download animations")
+
+    if not proceed:
+        st.stop()
+    else:
+        status_box = st.info("Cloning animation repository from GitHub... Please wait.")
+
+        import subprocess
+        result = subprocess.run([
+            "git", "clone", ANIMATION_GITHUB_URL, ANIMATION_REPO_PATH
+        ], capture_output=True, text=True)
+
+        if result.returncode != 0:
+            status_box.error("Failed to download animations.")
+            st.code(result.stderr)
+            st.stop()
+        else:
+            status_box.success("Animations downloaded successfully.")
+
+# Set animation path root
+ANIMATION_PATH_ROOT = os.path.join(ANIMATION_REPO_PATH, "animations")
 
 # =============================
 # Global Variables & Constants
@@ -31,6 +55,7 @@ dot_colors = [
 ]
 color_names = ['Red', 'Yellow', 'Green', 'White', 'Blue', 'Purple']
 gesture_names = ['Hand_Heart', 'Finger_Heart', 'Middle_Finger', 'Thumbs_Up', 'Thumbs_Down']
+
 gesture_friendly_names = {
     'Hand_Heart': 'Hand Heart',
     'Finger_Heart': 'Finger Heart',
@@ -39,15 +64,11 @@ gesture_friendly_names = {
     'Thumbs_Down': 'Thumbs Down'
 }
 
-ANIMATION_PATH_ROOT = os.path.join(os.getcwd(), "animations")
-FRAME_SIZE = (640, 480)
-
+FRAME_SIZE = (320, 240)  # Reduced size for better performance
 TARGET_FPS = 30
 FRAME_DURATION = 1.0 / TARGET_FPS
-
 sustain_duration = 1  # seconds hover required
 ANIMATION_COOLDOWN = 1.0  # seconds
-
 FADE_DURATION = 0.5  # seconds
 
 # =============================
@@ -78,22 +99,22 @@ def load_animation_frames(color_name, gesture_name, frame_size):
         return None, f"Failed to load images from: {path}"
     return frames, None
 
-def draw_circle_of_dots(image_size=(640, 480), center=(320, 240), radius=100, dot_radius=25):
+def draw_circle_of_dots(image_size=(320, 240), center=(160, 120), radius=50, dot_radius=15):
     image = np.zeros((image_size[1], image_size[0], 4), dtype=np.uint8)
     dot_positions = []
     for i, color in enumerate(dot_colors):
         angle = np.pi / 2 - (2 * np.pi * i / 6)
         x = int(center[0] + radius * np.cos(angle))
         y = int(center[1] - radius * np.sin(angle))
-        dot_positions.append((x, y - 30))
-        cv2.circle(image, (x, y - 30), dot_radius, color + (255,), -1)
+        dot_positions.append((x, y - 15))
+        cv2.circle(image, (x, y - 15), dot_radius, color + (255,), -1)
     return image, dot_positions
 
 def draw_wrapped_text(img, text, pos_y, font, font_scale, color, thickness, max_width):
     wrapper = textwrap.TextWrapper(width=max_width)
     lines = wrapper.wrap(text)
     y = pos_y
-    line_height = int(font_scale * 40)
+    line_height = int(font_scale * 20)
     for line in lines:
         text_size, _ = cv2.getTextSize(line, font, font_scale, thickness)
         x = int((img.shape[1] - text_size[0]) / 2)
@@ -234,11 +255,11 @@ class VideoProcessor(VideoProcessorBase):
     def recv(self, frame):
         img = frame.to_ndarray(format="bgr24")
         current_time = time.time()
-        
+
         # Process hands
         img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         results = self.hands.process(img_rgb)
-        
+
         # --- Dot fade logic ---
         if self.fade_state == "idle":
             self.dot_opacity = 0.6
@@ -273,6 +294,7 @@ class VideoProcessor(VideoProcessorBase):
         # Detect gestures and provide contextual feedback
         detected_gestures = [False] * 6
         gesture_context = None  # (dot_index, gesture_name)
+
         if results.multi_hand_landmarks and self.dot_opacity > 0.5:
             # Get hand position
             if len(results.multi_hand_landmarks) == 2:
