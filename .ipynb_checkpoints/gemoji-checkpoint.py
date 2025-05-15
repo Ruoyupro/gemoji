@@ -1,12 +1,4 @@
 import streamlit as st
-from streamlit_webrtc import webrtc_streamer, VideoProcessorBase, RTCConfiguration
-import av
-import numpy as np
-import mediapipe as mp
-import os
-import time
-import textwrap
-from typing import List, Dict, Optional, Tuple
 
 # =============================
 # Handle OpenCV Import Safely
@@ -15,17 +7,36 @@ try:
     import cv2
 except ImportError as e:
     st.error("""
-        Failed to import OpenCV (cv2). This usually happens because:
-        - Missing system libraries (like libgl1-mesa-dri)
+        **Failed to import OpenCV (`cv2`).**
+
+        This usually happens because:
+        - Missing system libraries (like `libgl1-mesa-dri`)
         - Incorrect OpenCV package installed
         - Conflicting installations
-        
-        Please ensure:
-        - 'opencv-contrib-python' is used instead of 'opencv-python'
-        - 'packages.txt' contains: libgl1-mesa-dri, libglib2.0-0, and libglx0
+
+        **How to fix:**
+        - Use `opencv-contrib-python` instead of `opencv-python`  
+          (run: `pip install --upgrade opencv-contrib-python`)
+        - If deploying on Streamlit Cloud, add to `packages.txt`:  
+          `libgl1-mesa-dri`, `libglib2.0-0`, `libglx0`
+        - Remove conflicting OpenCV installs:
+          ```
+          pip uninstall opencv-python opencv-contrib-python -y
+          pip install opencv-contrib-python
+          ```
     """)
     st.code(str(e))
     st.stop()
+
+# Only import mediapipe after cv2 is confirmed to work
+from streamlit_webrtc import webrtc_streamer, VideoProcessorBase, RTCConfiguration
+import av
+import numpy as np
+import mediapipe as mp
+import os
+import time
+import textwrap
+from typing import List, Dict, Optional, Tuple
 
 # =============================
 # Prompt User Before Downloading Animations
@@ -362,52 +373,22 @@ class VideoProcessor(VideoProcessorBase):
                         self.animation_playing = True
                         self.animation_frames = animation_frames
                         self.frame_index = 0
-                        self.last_triggered_dot = i
-                    else:
-                        if self.show_feedback:
-                            self.feedback_message = error
-                            self.feedback_timer = current_time
 
         return av.VideoFrame.from_ndarray(img, format="bgr24")
 
 # =============================
 # Streamlit UI
 # =============================
-st.title("Gemoji Gesture Control")
+st.title("Gemoji: Gesture-Triggered Emoji Animations 🎉")
 
-# Sidebar controls
-with st.sidebar:
-    st.header("Settings")
-    show_tracking = st.checkbox("Show Hand Tracking", value=True)
-    show_feedback = st.checkbox("Show Feedback Messages", value=True)
-    st.markdown("---")
-    st.markdown("**Instructions:**")
-    st.markdown("1. Make gestures with your hands")
-    st.markdown("2. Hover over a colored dot for 1 second")
-    st.markdown("3. Perform one of the supported gestures")
-    st.markdown("4. See the animation play!")
-    st.markdown("---")
-    st.markdown("**Supported Gestures:**")
-    st.markdown("- Hand Heart (two hands)")
-    st.markdown("- Finger Heart")
-    st.markdown("- Thumbs Up")
-    st.markdown("- Thumbs Down")
-    st.markdown("- Middle Finger")
+st.markdown("""
+Interact with the colored dots using your hand gestures!
+- Hover your index finger (or both for heart) over a dot and perform a gesture.
+- Supported gestures: Hand Heart, Finger Heart, Middle Finger, Thumbs Up, Thumbs Down.
+""")
 
-# WebRTC configuration
-RTC_CONFIGURATION = RTCConfiguration(
-    {"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}
-)
-
-# Create the video streamer
-ctx = webrtc_streamer(
-    key="gemoji",
+webrtc_streamer(
+    key="gemoji-stream",
     video_processor_factory=VideoProcessor,
-    rtc_configuration=RTC_CONFIGURATION,
-    media_stream_constraints={"video": True, "audio": False},
+    rtc_configuration=RTCConfiguration({"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]})
 )
-
-# Update settings
-if ctx.video_processor:
-    ctx.video_processor.show_tracking_markers = show_tracking
-    ctx.video_processor.show_feedback = show_feedback
