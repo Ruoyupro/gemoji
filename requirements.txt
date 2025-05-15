@@ -1,6 +1,7 @@
-streamlit
-mediapipe==0.9.1
-opencv-contrib-python-headless==4.9.0
-numpy
-streamlit-webrtc==0.47.0
-av==10.0.0
+streamlit>=1.0.0
+mediapipe>=0.10.0
+opencv-python>=4.5.0
+numpy>=1.20.0
+av>=9.0.0  # PyAV for video frame processing
+streamlit-webrtc>=0.30.0
+textwrap3  # For text wrapping (alternatively, can use standard library)
