@@ -13,7 +13,8 @@ from typing import List, Dict, Optional, Tuple
 # Prompt User Before Downloading Animations
 # =============================
 ANIMATION_REPO_PATH = "gemoji"
-ANIMATION_GITHUB_URL = "https://github.com/Ruoyupro/gemoji.git "  # Fixed: Removed trailing space
+ANIMATION_GITHUB_URL = "https://github.com/Ruoyupro/gemoji.git "  # No trailing space
+
 if not os.path.exists(ANIMATION_REPO_PATH):
     st.warning("This app needs to download animations (~50MB). Do you want to proceed?")
     proceed = st.checkbox("Yes, download animations")
@@ -58,12 +59,12 @@ gesture_friendly_names = {
     'Thumbs_Up': 'Thumbs Up',
     'Thumbs_Down': 'Thumbs Down'
 }
-FRAME_SIZE = (320, 240)  # Reduced size for better performance
+FRAME_SIZE = (320, 240)
 TARGET_FPS = 30
 FRAME_DURATION = 1.0 / TARGET_FPS
-sustain_duration = 1  # seconds hover required
-ANIMATION_COOLDOWN = 1.0  # seconds
-FADE_DURATION = 0.5  # seconds
+sustain_duration = 1
+ANIMATION_COOLDOWN = 1.0
+FADE_DURATION = 0.5
 
 # =============================
 # Helper Functions
@@ -127,7 +128,6 @@ def is_heart_gesture(hands_landmarks):
     index_tip1 = hand1[mp_hands.HandLandmark.INDEX_FINGER_TIP]
     thumb_tip2 = hand2[mp_hands.HandLandmark.THUMB_TIP]
     index_tip2 = hand2[mp_hands.HandLandmark.INDEX_FINGER_TIP]
-
     dist_thumb_tips = ((thumb_tip1.x - thumb_tip2.x)**2 + (thumb_tip1.y - thumb_tip2.y)**2)**0.5
     dist_index_tips = ((index_tip1.x - index_tip2.x)**2 + (index_tip1.y - index_tip2.y)**2)**0.5
     return dist_thumb_tips < 0.05 and dist_index_tips < 0.05
@@ -139,7 +139,6 @@ def is_finger_heart(hand_landmarks):
     middle_tip = landmarks[mp_hands.HandLandmark.MIDDLE_FINGER_TIP]
     ring_tip = landmarks[mp_hands.HandLandmark.RING_FINGER_TIP]
     pinky_tip = landmarks[mp_hands.HandLandmark.PINKY_TIP]
-
     return (
         thumb_tip.x > index_tip.x and
         abs(pinky_tip.y - middle_tip.y) < 0.05 and
@@ -196,7 +195,7 @@ class VideoProcessor(VideoProcessorBase):
         try:
             img = frame.to_ndarray(format="bgr24")
         except Exception as e:
-            # Fallback if frame is empty or invalid
+            # Fallback if no video input
             return av.VideoFrame.from_ndarray(np.zeros((240, 320, 3), dtype=np.uint8), format="bgr24")
 
         current_time = time.time()
@@ -294,19 +293,7 @@ class VideoProcessor(VideoProcessorBase):
             dot_idx, gesture_name = gesture_context
             color = color_names[dot_idx]
             gesture_friendly = gesture_friendly_names.get(gesture_name, gesture_name)
-            # Contextual feedback
-            if gesture_name == "Hand_Heart":
-                msg = f"Beautiful! You made a {color} Hand Heart gesture!"
-            elif gesture_name == "Finger_Heart":
-                msg = f"Nice! {color} Finger Heart gesture detected!"
-            elif gesture_name == "Middle_Finger":
-                msg = f"Oops! That's a {color} Middle Finger gesture!"
-            elif gesture_name == "Thumbs_Up":
-                msg = f"Thumbs Up! {color} dot recognized your gesture!"
-            elif gesture_name == "Thumbs_Down":
-                msg = f"Thumbs Down on {color}! Gesture detected."
-            else:
-                msg = f"{color} dot: {gesture_friendly} gesture detected!"
+            msg = f"{color} dot: {gesture_friendly} gesture detected!"
             self.feedback_message = msg
             self.feedback_timer = current_time
 
