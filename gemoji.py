@@ -1,21 +1,8 @@
 import streamlit as st
-
-# =============================
-# Handle OpenCV Import Safely
-# =============================
-try:
-    import cv2
-except ImportError as e:
-    st.error("""
-        **Failed to import OpenCV (`cv2`).**
-        ...
-    """)
-    st.code(str(e))
-    st.stop()
-
 from streamlit_webrtc import webrtc_streamer, VideoProcessorBase, RTCConfiguration
 import av
 import numpy as np
+import cv2
 import mediapipe as mp
 import os
 import time
@@ -23,10 +10,29 @@ import textwrap
 from typing import List, Dict, Optional, Tuple
 
 # =============================
+# Handle Import Errors Gracefully
+# =============================
+try:
+    import cv2
+except ImportError as e:
+    st.error("""
+        Failed to import OpenCV (cv2). This usually happens because:
+        - Missing system libraries (like libgl1-mesa-dri)
+        - Incorrect OpenCV package installed
+        - Conflicting installations
+        
+        Please ensure:
+        - 'opencv-contrib-python' is used instead of 'opencv-python'
+        - 'packages.txt' contains: libgl1-mesa-dri, libglib2.0-0, and libglx0
+    """)
+    st.code(str(e))
+    st.stop()
+
+# =============================
 # Prompt User Before Downloading Animations
 # =============================
 ANIMATION_REPO_PATH = "gemoji"
-ANIMATION_GITHUB_URL = "https://github.com/Ruoyupro/gemoji.git"
+ANIMATION_GITHUB_URL = "https://github.com/Ruoyupro/gemoji.git "
 
 if not os.path.exists(ANIMATION_REPO_PATH):
     st.warning("This app needs to download animations (~50MB). Do you want to proceed?")
@@ -141,6 +147,7 @@ def is_heart_gesture(hands_landmarks):
     index_tip1 = hand1[mp_hands.HandLandmark.INDEX_FINGER_TIP]
     thumb_tip2 = hand2[mp_hands.HandLandmark.THUMB_TIP]
     index_tip2 = hand2[mp_hands.HandLandmark.INDEX_FINGER_TIP]
+
     dist_thumb_tips = ((thumb_tip1.x - thumb_tip2.x)**2 + (thumb_tip1.y - thumb_tip2.y)**2)**0.5
     dist_index_tips = ((index_tip1.x - index_tip2.x)**2 + (index_tip1.y - index_tip2.y)**2)**0.5
     return dist_thumb_tips < 0.05 and dist_index_tips < 0.05
@@ -177,24 +184,6 @@ def is_thumbs_down(hand_landmarks):
     return thumb_tip.y > wrist.y
 
 # =============================
-# Streamlit UI Toggles (NEW)
-# =============================
-st.title("Gemoji: Gesture-Triggered Emoji Animations 🎉")
-
-st.markdown("""
-Interact with the colored dots using your hand gestures!
-- Hover your index finger (or both for heart) over a dot and perform a gesture.
-- Supported gestures: Hand Heart, Finger Heart, Middle Finger, Thumbs Up, Thumbs Down.
-""")
-
-# --- NEW: UI toggles for hand tracking markers and feedback ---
-col1, col2 = st.columns(2)
-with col1:
-    show_tracking_markers = st.toggle("Show Hand Tracking Markers", value=True)
-with col2:
-    show_feedback = st.toggle("Show Feedback", value=True)
-
-# =============================
 # Streamlit Video Processor
 # =============================
 class VideoProcessor(VideoProcessorBase):
@@ -219,22 +208,17 @@ class VideoProcessor(VideoProcessorBase):
         self.feedback_message = ""
         self.feedback_timer = None
         self.feedback_duration = 2.5
-
-        # --- NEW: These will be set from Streamlit session state below ---
         self.show_tracking_markers = True
         self.show_feedback = True
 
     def recv(self, frame):
-        # --- NEW: Get toggles from Streamlit session state ---
-        self.show_tracking_markers = st.session_state.get("show_tracking_markers", True)
-        self.show_feedback = st.session_state.get("show_feedback", True)
-
         try:
             img = frame.to_ndarray(format="bgr24")
         except Exception as e:
-            return av.VideoFrame.from_ndarray(np.zeros((240, 320, 3), dtype=np.uint8), format="bgr24")
+            return av.VideoFrame.from_ndarray(np.zeros((240, 320, 3), dtype=np.uint8))
 
         current_time = time.time()
+
         img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         results = self.hands.process(img_rgb)
 
@@ -273,7 +257,6 @@ class VideoProcessor(VideoProcessorBase):
         gesture_context = None
 
         if results.multi_hand_landmarks and self.dot_opacity > 0.5:
-            # Get index finger tip position
             if len(results.multi_hand_landmarks) == 2:
                 hand1, hand2 = results.multi_hand_landmarks
                 index_tip_1 = hand1.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP]
@@ -309,12 +292,12 @@ class VideoProcessor(VideoProcessorBase):
                             detected_gestures[i] = True
                             gesture_context = (i, gesture_name)
                             self.gesture_timers[i] = None
-                    # Draw ring around hovered dot
+                    # Highlight hovered dot
                     cv2.circle(img, (dot_x, dot_y), 30, dot_colors[i], 4)
                 else:
                     self.gesture_timers[i] = None
 
-            # Draw tracking markers if enabled (RESTORED FEATURE)
+            # Draw tracking markers
             if self.show_tracking_markers:
                 for hand_landmarks in results.multi_hand_landmarks:
                     mp_drawing.draw_landmarks(
@@ -324,7 +307,7 @@ class VideoProcessor(VideoProcessorBase):
                     )
 
         # Provide contextual feedback if gesture detected
-        if gesture_context is not None:
+        if gesture_context:
             dot_idx, gesture_name = gesture_context
             color = color_names[dot_idx]
             gesture_friendly = gesture_friendly_names.get(gesture_name, gesture_name)
@@ -332,7 +315,7 @@ class VideoProcessor(VideoProcessorBase):
             self.feedback_message = msg
             self.feedback_timer = current_time
 
-        # Draw feedback message if toggled on (RESTORED FEATURE)
+        # Draw feedback message if toggled on
         if self.show_feedback and self.feedback_message and (current_time - self.feedback_timer < self.feedback_duration):
             draw_wrapped_text(
                 img, self.feedback_message, 50,
@@ -381,16 +364,50 @@ class VideoProcessor(VideoProcessorBase):
                         self.animation_playing = True
                         self.animation_frames = animation_frames
                         self.frame_index = 0
+                        self.last_triggered_dot = i
+                    else:
+                        if self.show_feedback:
+                            self.feedback_message = error
+                            self.feedback_timer = current_time
 
         return av.VideoFrame.from_ndarray(img, format="bgr24")
 
-# --- Save toggles in session state for use in VideoProcessor ---
-st.session_state["show_tracking_markers"] = show_tracking_markers
-st.session_state["show_feedback"] = show_feedback
+# =============================
+# Streamlit UI
+# =============================
+st.title("Gemoji Gesture Control")
 
-# --- Streamlit WebRTC ---
-webrtc_streamer(
-    key="gemoji-stream",
+# Sidebar controls
+with st.sidebar:
+    st.header("Settings")
+    show_tracking = st.checkbox("Show Hand Tracking", value=True)
+    show_feedback = st.checkbox("Show Feedback Messages", value=True)
+    st.markdown("---")
+    st.markdown("**Instructions:**")
+    st.markdown("1. Make gestures with your hands")
+    st.markdown("2. Hover over a colored dot for 1 second")
+    st.markdown("3. Perform one of the supported gestures")
+    st.markdown("4. See the animation play!")
+    st.markdown("---")
+    st.markdown("**Supported Gestures:**")
+    st.markdown("- Hand Heart (two hands)")
+    st.markdown("- Finger Heart")
+    st.markdown("- Thumbs Up")
+    st.markdown("- Thumbs Down")
+    st.markdown("- Middle Finger")
+
+# WebRTC configuration
+RTC_CONFIGURATION = RTCConfiguration({"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}])
+
+# Create the video streamer
+ctx = webrtc_streamer(
+    key="gemoji",
     video_processor_factory=VideoProcessor,
-    rtc_configuration=RTCConfiguration({"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]})
+    rtc_configuration=RTC_CONFIGURATION,
+    media_stream_constraints={"video": True, "audio": False},
 )
+
+# Update settings
+if ctx.video_processor:
+    ctx.video_processor.show_tracking_markers = show_tracking
+    ctx.video_processor.show_feedback = show_feedback
