@@ -2,7 +2,6 @@ import streamlit as st
 from streamlit_webrtc import webrtc_streamer, VideoProcessorBase, RTCConfiguration
 import av
 import numpy as np
-import cv2
 import mediapipe as mp
 import os
 import time
@@ -10,10 +9,29 @@ import textwrap
 from typing import List, Dict, Optional, Tuple
 
 # =============================
+# Handle OpenCV Import Safely
+# =============================
+try:
+    import cv2
+except ImportError as e:
+    st.error("""
+        Failed to import OpenCV (cv2). This usually happens because:
+        - Missing system libraries (like libgl1-mesa-dri)
+        - Incorrect OpenCV package installed
+        - Conflicting installations
+        
+        Please ensure:
+        - 'opencv-contrib-python' is used instead of 'opencv-python'
+        - 'packages.txt' contains: libgl1-mesa-dri, libglib2.0-0, and libglx0
+    """)
+    st.code(str(e))
+    st.stop()
+
+# =============================
 # Prompt User Before Downloading Animations
 # =============================
 ANIMATION_REPO_PATH = "gemoji"
-ANIMATION_GITHUB_URL = "https://github.com/Ruoyupro/gemoji.git "  # No trailing space
+ANIMATION_GITHUB_URL = "https://github.com/Ruoyupro/gemoji.git "
 
 if not os.path.exists(ANIMATION_REPO_PATH):
     st.warning("This app needs to download animations (~50MB). Do you want to proceed?")
@@ -62,9 +80,9 @@ gesture_friendly_names = {
 FRAME_SIZE = (320, 240)
 TARGET_FPS = 30
 FRAME_DURATION = 1.0 / TARGET_FPS
-sustain_duration = 1
-ANIMATION_COOLDOWN = 1.0
-FADE_DURATION = 0.5
+sustain_duration = 1  # seconds hover required
+ANIMATION_COOLDOWN = 1.0  # seconds
+FADE_DURATION = 0.5  # seconds
 
 # =============================
 # Helper Functions
@@ -195,11 +213,9 @@ class VideoProcessor(VideoProcessorBase):
         try:
             img = frame.to_ndarray(format="bgr24")
         except Exception as e:
-            # Fallback if no video input
             return av.VideoFrame.from_ndarray(np.zeros((240, 320, 3), dtype=np.uint8), format="bgr24")
 
         current_time = time.time()
-
         img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         results = self.hands.process(img_rgb)
 
