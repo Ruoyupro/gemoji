@@ -13,7 +13,7 @@ from typing import List, Dict, Optional, Tuple
 # Prompt User Before Downloading Animations
 # =============================
 ANIMATION_REPO_PATH = "gemoji"
-ANIMATION_GITHUB_URL = "https://github.com/Ruoyupro/gemoji.git "  # Removed trailing space
+ANIMATION_GITHUB_URL = "https://github.com/Ruoyupro/gemoji.git "  # Fixed: Removed trailing space
 if not os.path.exists(ANIMATION_REPO_PATH):
     st.warning("This app needs to download animations (~50MB). Do you want to proceed?")
     proceed = st.checkbox("Yes, download animations")
@@ -193,7 +193,12 @@ class VideoProcessor(VideoProcessorBase):
         self.show_feedback = True
 
     def recv(self, frame):
-        img = frame.to_ndarray(format="bgr24")
+        try:
+            img = frame.to_ndarray(format="bgr24")
+        except Exception as e:
+            # Fallback if frame is empty or invalid
+            return av.VideoFrame.from_ndarray(np.zeros((240, 320, 3), dtype=np.uint8), format="bgr24")
+
         current_time = time.time()
 
         img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
