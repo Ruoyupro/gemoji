@@ -13,22 +13,18 @@ from typing import List, Dict, Optional, Tuple
 # Prompt User Before Downloading Animations
 # =============================
 ANIMATION_REPO_PATH = "gemoji"
-ANIMATION_GITHUB_URL = "https://github.com/Ruoyupro/gemoji.git "
-
+ANIMATION_GITHUB_URL = "https://github.com/Ruoyupro/gemoji.git "  # Removed trailing space
 if not os.path.exists(ANIMATION_REPO_PATH):
     st.warning("This app needs to download animations (~50MB). Do you want to proceed?")
     proceed = st.checkbox("Yes, download animations")
-
     if not proceed:
         st.stop()
     else:
         status_box = st.info("Cloning animation repository from GitHub... Please wait.")
-
         import subprocess
         result = subprocess.run([
             "git", "clone", ANIMATION_GITHUB_URL, ANIMATION_REPO_PATH
         ], capture_output=True, text=True)
-
         if result.returncode != 0:
             status_box.error("Failed to download animations.")
             st.code(result.stderr)
@@ -55,7 +51,6 @@ dot_colors = [
 ]
 color_names = ['Red', 'Yellow', 'Green', 'White', 'Blue', 'Purple']
 gesture_names = ['Hand_Heart', 'Finger_Heart', 'Middle_Finger', 'Thumbs_Up', 'Thumbs_Down']
-
 gesture_friendly_names = {
     'Hand_Heart': 'Hand Heart',
     'Finger_Heart': 'Finger Heart',
@@ -63,7 +58,6 @@ gesture_friendly_names = {
     'Thumbs_Up': 'Thumbs Up',
     'Thumbs_Down': 'Thumbs Down'
 }
-
 FRAME_SIZE = (320, 240)  # Reduced size for better performance
 TARGET_FPS = 30
 FRAME_DURATION = 1.0 / TARGET_FPS
@@ -122,6 +116,55 @@ def draw_wrapped_text(img, text, pos_y, font, font_scale, color, thickness, max_
         y += line_height
 
 # =============================
+# Gesture Detection Logic
+# =============================
+def is_heart_gesture(hands_landmarks):
+    if len(hands_landmarks) != 2:
+        return False
+    hand1 = hands_landmarks[0].landmark
+    hand2 = hands_landmarks[1].landmark
+    thumb_tip1 = hand1[mp_hands.HandLandmark.THUMB_TIP]
+    index_tip1 = hand1[mp_hands.HandLandmark.INDEX_FINGER_TIP]
+    thumb_tip2 = hand2[mp_hands.HandLandmark.THUMB_TIP]
+    index_tip2 = hand2[mp_hands.HandLandmark.INDEX_FINGER_TIP]
+
+    dist_thumb_tips = ((thumb_tip1.x - thumb_tip2.x)**2 + (thumb_tip1.y - thumb_tip2.y)**2)**0.5
+    dist_index_tips = ((index_tip1.x - index_tip2.x)**2 + (index_tip1.y - index_tip2.y)**2)**0.5
+    return dist_thumb_tips < 0.05 and dist_index_tips < 0.05
+
+def is_finger_heart(hand_landmarks):
+    landmarks = hand_landmarks.landmark
+    thumb_tip = landmarks[mp_hands.HandLandmark.THUMB_TIP]
+    index_tip = landmarks[mp_hands.HandLandmark.INDEX_FINGER_TIP]
+    middle_tip = landmarks[mp_hands.HandLandmark.MIDDLE_FINGER_TIP]
+    ring_tip = landmarks[mp_hands.HandLandmark.RING_FINGER_TIP]
+    pinky_tip = landmarks[mp_hands.HandLandmark.PINKY_TIP]
+
+    return (
+        thumb_tip.x > index_tip.x and
+        abs(pinky_tip.y - middle_tip.y) < 0.05 and
+        abs(ring_tip.y - middle_tip.y) < 0.05
+    )
+
+def is_middle_finger(hand_landmarks):
+    landmarks = hand_landmarks.landmark
+    middle_tip = landmarks[mp_hands.HandLandmark.MIDDLE_FINGER_TIP]
+    wrist = landmarks[mp_hands.HandLandmark.WRIST]
+    return middle_tip.y < wrist.y
+
+def is_thumbs_up(hand_landmarks):
+    landmarks = hand_landmarks.landmark
+    thumb_tip = landmarks[mp_hands.HandLandmark.THUMB_TIP]
+    wrist = landmarks[mp_hands.HandLandmark.WRIST]
+    return thumb_tip.y < wrist.y
+
+def is_thumbs_down(hand_landmarks):
+    landmarks = hand_landmarks.landmark
+    thumb_tip = landmarks[mp_hands.HandLandmark.THUMB_TIP]
+    wrist = landmarks[mp_hands.HandLandmark.WRIST]
+    return thumb_tip.y > wrist.y
+
+# =============================
 # Streamlit Video Processor
 # =============================
 class VideoProcessor(VideoProcessorBase):
@@ -153,7 +196,6 @@ class VideoProcessor(VideoProcessorBase):
         img = frame.to_ndarray(format="bgr24")
         current_time = time.time()
 
-        # Process hands
         img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         results = self.hands.process(img_rgb)
 
