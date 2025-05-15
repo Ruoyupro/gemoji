@@ -13,7 +13,7 @@ from typing import List, Dict, Optional, Tuple
 # Prompt User Before Downloading Animations
 # =============================
 ANIMATION_REPO_PATH = "gemoji"
-ANIMATION_GITHUB_URL = "https://github.com/Ruoyupro/gemoji.git"
+ANIMATION_GITHUB_URL = "https://github.com/Ruoyupro/gemoji.git "
 
 if not os.path.exists(ANIMATION_REPO_PATH):
     st.warning("This app needs to download animations (~50MB). Do you want to proceed?")
